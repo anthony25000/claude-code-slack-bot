@@ -51,7 +51,17 @@ export class SlackHandler {
 
   async handleMessage(event: MessageEvent, say: any) {
     const { user, channel, thread_ts, ts, text, files } = event;
-    
+
+    // Check if user is allowed (if allowedUsers is configured)
+    if (config.slack.allowedUsers.length > 0 && !config.slack.allowedUsers.includes(user)) {
+      this.logger.info('Unauthorized user attempted to use bot', { user });
+      await say({
+        text: '⛔ Sorry, you are not authorized to use this bot.',
+        thread_ts: thread_ts || ts,
+      });
+      return;
+    }
+
     // Process any attached files
     let processedFiles: ProcessedFile[] = [];
     if (files && files.length > 0) {
@@ -147,7 +157,7 @@ export class SlackHandler {
       return;
     }
 
-    // Check if we have a working directory set
+    // Check if we have a working directory set (optional for MCP-only operations)
     const isDM = channel.startsWith('D');
     const workingDirectory = this.workingDirManager.getWorkingDirectory(
       channel,
@@ -155,37 +165,8 @@ export class SlackHandler {
       isDM ? user : undefined
     );
 
-    // Working directory is always required
-    if (!workingDirectory) {
-      let errorMessage = `⚠️ No working directory set. `;
-      
-      if (!isDM && !this.workingDirManager.hasChannelWorkingDirectory(channel)) {
-        // No channel default set
-        errorMessage += `Please set a default working directory for this channel first using:\n`;
-        if (config.baseDirectory) {
-          errorMessage += `\`cwd project-name\` or \`cwd /absolute/path\`\n\n`;
-          errorMessage += `Base directory: \`${config.baseDirectory}\``;
-        } else {
-          errorMessage += `\`cwd /path/to/directory\``;
-        }
-      } else if (thread_ts) {
-        // In thread but no thread-specific directory
-        errorMessage += `You can set a thread-specific working directory using:\n`;
-        if (config.baseDirectory) {
-          errorMessage += `\`@claudebot cwd project-name\` or \`@claudebot cwd /absolute/path\``;
-        } else {
-          errorMessage += `\`@claudebot cwd /path/to/directory\``;
-        }
-      } else {
-        errorMessage += `Please set one first using:\n\`cwd /path/to/directory\``;
-      }
-      
-      await say({
-        text: errorMessage,
-        thread_ts: thread_ts || ts,
-      });
-      return;
-    }
+    // Note: Working directory is optional - it's only needed for file system operations
+    // MCP operations (Notion, Fireflies, etc.) work without a working directory
 
     const sessionKey = this.claudeHandler.getSessionKey(user, channel, thread_ts || ts);
     

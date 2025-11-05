@@ -7,6 +7,7 @@ export const config = {
     botToken: process.env.SLACK_BOT_TOKEN!,
     appToken: process.env.SLACK_APP_TOKEN!,
     signingSecret: process.env.SLACK_SIGNING_SECRET!,
+    allowedUsers: process.env.ALLOWED_USERS?.split(',').map(id => id.trim()) || [],
   },
   anthropic: {
     apiKey: process.env.ANTHROPIC_API_KEY!,
